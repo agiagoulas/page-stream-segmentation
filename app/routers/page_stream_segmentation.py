@@ -43,7 +43,7 @@ def generate_sequence(file_texts):
     sequence = []
 
     for count, file_text in enumerate(file_texts):
-        current_page = "page " + str(count)
+        current_page = "page" + str(count)
         sequence.append([current_page, "FirstPage", file_text, "", ""])
     
     return sequence

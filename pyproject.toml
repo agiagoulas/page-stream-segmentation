@@ -17,6 +17,8 @@ scipy = "^1.6.1"
 scikit-learn = "^0.24.1"
 Keras = "^2.4.3"
 tensorflow = "^2.4.1"
+argparse = "^1.4.0"
+PyPDF2 = "^1.26.0"
 
 [tool.poetry.dev-dependencies]
 
