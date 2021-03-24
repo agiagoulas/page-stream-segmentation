@@ -141,3 +141,6 @@ cython_debug/
 .vscode/
 .DS_Store
 .idea
+
+# Project Specific
+*/pss/models/
