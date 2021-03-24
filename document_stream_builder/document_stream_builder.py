@@ -16,7 +16,7 @@ parser.add_argument("-l", "--limit", help="limit amount of processed documents")
 args = parser.parse_args()
 
 
-input_documents_list = [f for f in listdir(args.input) if isfile(join(args.input, f))]
+input_documents_list = [f for f in listdir(args.input) if isfile(join(args.input, f)) and f.endswith('.pdf')]
 if args.random:
   random.shuffle(input_documents_list)
 
