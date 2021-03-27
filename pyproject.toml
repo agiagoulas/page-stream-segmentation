@@ -21,6 +21,7 @@ argparse = "^1.4.0"
 PyPDF2 = "^1.26.0"
 opencv-python = "^4.5.1"
 fpdf = "^1.7.2"
+loguru = "^0.5.3"
 
 [tool.poetry.dev-dependencies]
 

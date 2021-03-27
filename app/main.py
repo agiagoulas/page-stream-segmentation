@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.logger import logger
+import logging
+
 from routers import page_stream_segmentation
 
 app = FastAPI(title="Page Stream Segmentation",
@@ -14,6 +17,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.get("/")
 async def root():
