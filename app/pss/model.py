@@ -64,7 +64,7 @@ class TextFeatureSinglePageGenerator(Sequence):
     def process_text_data(self, inds):
         word_embeddings = []
         for index in inds:
-            word_embeddings.append(text_to_embedding(self.text_data[index][0]))
+            word_embeddings.append(text_to_embedding(self.text_data[index][1]))
         return [np.array(word_embeddings)], np.zeros(int(len(inds)))
 
 
@@ -86,8 +86,8 @@ class TextFeaturePrevPageGenerator(Sequence):
         word_embeddings = []
         prev_embeddings = []
         for index in inds:
-            word_embeddings.append(text_to_embedding(self.text_data[index][0]))
-            prev_embeddings.append(text_to_embedding(self.text_data[index][1]))
+            word_embeddings.append(text_to_embedding(self.text_data[index][1]))
+            prev_embeddings.append(text_to_embedding(self.text_data[index][2]))
         return [np.array(word_embeddings), np.array(prev_embeddings)], np.zeros(int(len(inds)))
 
 
