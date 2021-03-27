@@ -138,8 +138,10 @@ class ModelType(str, Enum):
     single_page = "single_page"
     prev_page = "prev_page"
 
+# TODO calculate and return accuracy score
 
-@router.post("/textModel/{model_type}/processDocument/")
+
+@router.post("/textModel/{model_type}/processDocument/", response_model=PredictionWrapper)
 async def process_document_with_text_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with " + model_type + " model")
     used_model_name = ""
@@ -211,7 +213,7 @@ async def process_document_with_text_model(response: Response, model_type: Model
     return predictions
 
 
-@router.post("/imageModel/{model_type}/processDocument/")
+@router.post("/imageModel/{model_type}/processDocument/", response_model=PredictionWrapper)
 async def process_document_with_image_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with " + model_type + " model")
     used_model_name = ""
@@ -283,7 +285,7 @@ async def process_document_with_image_model(response: Response, model_type: Mode
     return predictions
 
 
-@router.post("/combinedModels/{text_model_type}/{image_model_type}/processDocument/")
+@router.post("/combinedModels/{text_model_type}/{image_model_type}/processDocument/", response_model=PredictionWrapper)
 async def process_document_with_text_model(response: Response, text_model_type: ModelType, image_model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with text model: " + text_model_type + " and image model: " + image_model_type)
 
@@ -385,6 +387,21 @@ async def process_document_with_text_model(response: Response, text_model_type: 
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "could not generate prediction"}
 
-    predictions = PredictionWrapper(file_name=file.filename, predictions=[text_prediction, image_prediction])
+    logger.debug("generating combined predictions from both models")
+    try:
+        text_probability = np.concatenate([1 - text_y_predict_numpy, text_y_predict_numpy], axis = 1)
+        image_probability = np.concatenate([1 - image_y_predict_numpy, image_y_predict_numpy], axis = 1)
+        combined_y_predict_numpy = np.argmax(np.power(text_probability, 0.4) * np.power(image_probability, 0.2), axis = 1)
+        int_list = combined_y_predict_numpy.astype(int).tolist()
+        combined_y_predict = []
+        for value in int_list:
+            combined_y_predict.append(value)
+        combined_prediction = Prediction(model="combined model", y_predict=combined_y_predict)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate combined prediction"}
+
+    predictions = PredictionWrapper(file_name=file.filename, predictions=[text_prediction, image_prediction, combined_prediction])
     logger.info(predictions)
     return predictions

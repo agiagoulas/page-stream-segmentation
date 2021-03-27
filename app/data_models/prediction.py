@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, Any, List
 
 
+# TODO: add descriptions and details
 class Prediction(BaseModel):
     model: str
     y_predict: List[int]
