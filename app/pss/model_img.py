@@ -11,19 +11,13 @@ from keras.utils import *
 from PIL import Image
 
 
-nb_embedding_dims = 300
-nb_sequence_length = 150
-label2Idx = {'FirstPage': 1, 'NextPage': 0}
-
-
 class ImageFeatureGenerator(Sequence):
-    def __init__(self, image_data, img_dim, image_binary_array, prevpage=False, batch_size=32):
+    def __init__(self, image_data, img_dim, prevpage=False, batch_size=32):
         self.image_data = image_data
         self.indices = np.arange(len(self.image_data))
         self.batch_size = batch_size
         self.img_dim = img_dim
         self.prevpage = prevpage
-        self.image_binary_array = image_binary_array
 
     def __len__(self):
         return math.ceil(len(self.image_data) / self.batch_size)
@@ -38,40 +32,28 @@ class ImageFeatureGenerator(Sequence):
 
     def process_image_data(self, inds):
         image_array = []
-        output_labels = []
-
         for index in inds:
-            image = self.get_image_data(self.image_data[index][0])
+            image = self.get_image_data(self.image_data[index][1])
             image_array.append(image)
-
-            temp_output = label2Idx[self.image_data[index][1]]
-            output_labels.append(temp_output)
-
-        return [np.array(image_array)], np.array(output_labels)
+        return [np.array(image_array)], np.zeros(int(len(inds)))
 
     def process_image_data_prevpage(self, inds):
-
         image_array = []
         prev_image_array = []
-        output_labels = []
 
         for index in inds:
-            image = self.get_image_data(self.image_data[index][0])
+            image = self.get_image_data(self.image_data[index][1])
             image_array.append(image)
 
-            if self.image_data[index][1] != "":
-                prev_image = self.get_image_data(self.image_data[index][1])
+            if self.image_data[index][2] != "":
+                prev_image = self.get_image_data(self.image_data[index][2])
             else:
                 prev_image = np.zeros((self.img_dim[0], self.img_dim[1], 3))
             prev_image_array.append(prev_image)
 
-            temp_output = label2Idx[self.image_data[index][1]]
-            output_labels.append(temp_output)
+        return [np.array(image_array), np.array(prev_image_array)], np.zeros(int(len(inds)))
 
-        return [np.array(image_array), np.array(prev_image_array)], np.array(output_labels)
-
-    def get_image_data(self, image_id):
-        binary_image = self.image_binary_array[int(image_id)]
+    def get_image_data(self, binary_image):
         img = binary_image.resize((self.img_dim[0], self.img_dim[1]), Image.NEAREST)
         image = img_to_array(img)
         image = preprocess_input(image)
@@ -80,9 +62,11 @@ class ImageFeatureGenerator(Sequence):
 
 def predict(model, data, img_dim, prev_page_generator=False, batch_size=32):
     if prev_page_generator:
-        y_predict = np.round(model.predict_generator(ImageFeatureGenerator(data, img_dim, prevpage=True, batch_size=batch_size)))
+        y_predict = np.round(model.predict(ImageFeatureGenerator(data, img_dim, prevpage=True,
+                                                                           batch_size=batch_size)))
     else:
-        y_predict = np.round(model.predict_generator(ImageFeatureGenerator(data, img_dim, prevpage=False, batch_size=batch_size)))
+        y_predict = np.round(model.predict(ImageFeatureGenerator(data, img_dim, prevpage=False,
+                                                                           batch_size=batch_size)))
     return y_predict
 
 
@@ -112,9 +96,6 @@ def compile_model_singlepage(img_dim, print_summary=False):
 
 
 def compile_model_prevpage(img_dim, print_summary=False):
-    # pp: prev_page
-    # tp: target_page
-
     model_vgg16_pp = VGG16(weights='imagenet', include_top=False, input_shape=(img_dim[0], img_dim[1], 3))
     model_vgg16_tp = VGG16(weights='imagenet', include_top=False, input_shape=(img_dim[0], img_dim[1], 3))
 

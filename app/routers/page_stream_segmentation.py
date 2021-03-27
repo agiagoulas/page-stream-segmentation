@@ -10,6 +10,7 @@ import fasttext
 import cv2
 import traceback
 
+# TODO fix imports
 from pss import model, model_img
 
 router = APIRouter(prefix="/pss",
@@ -62,29 +63,21 @@ def convert_pdf_to_jpeg(pdf_bytes):
 
 def ocr_image_to_text(image_bytes_array, language='eng'):
     text = []
-
     for image in image_bytes_array:
         text.append(image_to_string(image, lang=language))
-
     return text
 
 
-def generate_sequence(file_array, mode="text"):
+def generate_sequence(file_array):
     sequence = []
-
     prev_page_content = ""
-    prev_page_count = ""
     for count, current_page_content in enumerate(file_array):
-        if mode == "text":
-            sequence.append([str(count), current_page_content, prev_page_content])
-        else:
-            sequence.append([str(count), prev_page_count])
+        sequence.append([str(count), current_page_content, prev_page_content])  
         prev_page_content = current_page_content
-        prev_page_count = str(count)
-
     return sequence
 
 
+# TODO add tresholding
 def otsu_tresholding_and_resizing(img):
     img_cv = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2GRAY)
     gray, img_bin = cv2.threshold(img_cv, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -92,7 +85,6 @@ def otsu_tresholding_and_resizing(img):
     # resized = cv2.resize(gray, img_dim, interpolation = cv2.INTER_AREA)
     resized = cv2.resize(gray, (225, 225), interpolation=cv2.INTER_AREA)
     img_pil = Image.fromarray(resized)
-
     return img_pil
 
 
@@ -138,10 +130,10 @@ class ModelType(str, Enum):
 
 
 @router.post("/textModel/{model_type}/processDocument/")
-async def upload_file(response: Response, model_type: ModelType, file: UploadFile = File(...)):
+async def process_document_with_text_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with " + model_type + " model")
 
-    # todo check for pdf file.content_type
+    # TODO check for pdf file.content_type
     logger.debug("reading pdf file")
     try:
         file_bytes = await file.read()
@@ -177,7 +169,7 @@ async def upload_file(response: Response, model_type: ModelType, file: UploadFil
     if model_type == "single_page":
         logger.debug("generating predictions with single page text model")
         try:
-            y_predict = model.predict(model=model_text, data=sequence, prev_page_generator=False, batch_size=256)
+            y_predict = model.predict(model=model_text, data=sequence, prev_page_generator=False)
         except Exception:
             logger.error(traceback.format_exc())
             response.status_code = status.HTTP_400_BAD_REQUEST
@@ -185,8 +177,7 @@ async def upload_file(response: Response, model_type: ModelType, file: UploadFil
     elif model_type == "prev_page":
         logger.debug("generating predictions with prev page text model")
         try:
-            y_predict = model.predict(model=model_text_prevpage, data=sequence, prev_page_generator=True,
-                                      batch_size=256)
+            y_predict = model.predict(model=model_text_prevpage, data=sequence, prev_page_generator=True)
         except Exception:
             logger.error(traceback.format_exc())
             response.status_code = status.HTTP_400_BAD_REQUEST
@@ -200,23 +191,63 @@ async def upload_file(response: Response, model_type: ModelType, file: UploadFil
     return processed_predictions
 
 
-@router.post("/imageModel/processDocument")
-async def upload_file(file: UploadFile = File(...)):
-    file_bytes = await file.read()
+@router.post("/imageModel/{model_type}/processDocument")
+async def process_document_with_image_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
+    logger.info("processing file: " + file.filename + " with " + model_type + " model")
 
-    file_jpegs_bytes = convert_pdf_to_jpeg(file_bytes)
+    # TODO check for pdf file.content_type
+    logger.debug("reading pdf file")
+    try:
+        file_bytes = await file.read()
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not read file"}
 
-    file_images_resized_bytes = convert_image_to_resized(file_jpegs_bytes)
+    logger.debug("converting pdf to jpeg images")
+    try:
+        file_jpegs_bytes = convert_pdf_to_jpeg(file_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not convert pdf to images"}
 
-    sequence = generate_sequence(file_images_resized_bytes, mode="image")
+    logger.debug("resizing image bytes")
+    try:
+        file_images_resized_bytes = convert_image_to_resized(file_jpegs_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not resize image bytes"}
 
-    y_predict_image = np.round(model_image.predict_generator(
-        model_img.ImageFeatureGenerator(sequence, img_dim, image_binary_array=file_images_resized_bytes,
-                                        prevpage=False)))
+    logger.debug("generating sequence")
+    try:
+        sequence = generate_sequence(file_images_resized_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate sequence"}
 
-    print(y_predict_image)
+    if model_type == "single_page":
+        logger.debug("generating predictions with single page image model")
+        try:
+            y_predict = model_img.predict(model=model_image, data=sequence, img_dim=img_dim, prev_page_generator=False)
+        except Exception:
+            logger.error(traceback.format_exc())
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "could not generate prediction"}
+    elif model_type == "prev_page":
+        logger.debug("generating predictions with prev page image model")
+        try:
+            y_predict = model_img.predict(model=model_image_prevpage, data=sequence, img_dim=img_dim, prev_page_generator=True)
+        except Exception:
+            logger.error(traceback.format_exc())
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "could not generate prediction"}
 
-    processed_predictions = process_prediction(y_predict_image, sequence)
+    print("processing predictions")
+    processed_predictions = process_prediction(y_predict, sequence)
 
+    print("predictions: ")
     print(processed_predictions)
-    return (processed_predictions)
+    return processed_predictions
