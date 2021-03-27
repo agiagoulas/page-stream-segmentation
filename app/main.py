@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.logger import logger
 import logging
 
-from routers import page_stream_segmentation
+from app.routers import page_stream_segmentation
+
 
 app = FastAPI(title="Page Stream Segmentation",
               description="PSS Implementation")
 
 app.include_router(page_stream_segmentation.router)
+
 
 app.add_middleware(
     CORSMiddleware,

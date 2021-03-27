@@ -10,8 +10,9 @@ import fasttext
 import cv2
 import traceback
 
-# TODO fix imports
-from pss import model, model_img
+from app.pss import model, model_img
+from app.data_models.prediction import Prediction, PredictionWrapper
+
 
 router = APIRouter(prefix="/pss",
                    tags=["pss"],
@@ -19,11 +20,12 @@ router = APIRouter(prefix="/pss",
                        "description": "Not found"
                    }})
 
-MODEL_IMAGE_PATH = "./pss/models/image-only/Tobacco800_exp2_img_repeat-06.hdf5"
-MODEL_IMAGE_PREV_PAGE_PATH = "./pss/models/image-only/Tobacco800_exp2_prev-page_repeat-07.hdf5"
-MODEL_TEXT_PATH = "./pss/models/text-only/tobacco800_exp1_single-page_repeat-01.hdf5"
-MODEL_TEXT_PREV_PAGE_PATH = "./pss/models/text-only/tobacco800_exp1_prev-page_repeat_02-05.hdf5"
-FASTTEXT_WORD_VECTORS_PATH = "./pss/models/fasttext/wiki.en.bin"
+WORKING_DIR = ""
+MODEL_IMAGE_PATH = "./app/pss/models/image-only/Tobacco800_exp2_img_repeat-06.hdf5"
+MODEL_IMAGE_PREV_PAGE_PATH = "./app/pss/models/image-only/Tobacco800_exp2_prev-page_repeat-07.hdf5"
+MODEL_TEXT_PATH = "./app/pss/models/text-only/tobacco800_exp1_single-page_repeat-01.hdf5"
+MODEL_TEXT_PREV_PAGE_PATH = "./app/pss/models/text-only/tobacco800_exp1_prev-page_repeat_02-05.hdf5"
+FASTTEXT_WORD_VECTORS_PATH = "./app/pss/models/fasttext/wiki.en.bin"
 
 logger.info("---Model Setup---")
 logger.info("loading image models")
@@ -99,7 +101,7 @@ def convert_image_to_resized(image_bytes_array):
     return images
 
 
-def process_prediction(y_predict, sequence):
+def process_prediction_to_corresponding_pages(y_predict, sequence):
     seperated_documents = []
     current_document = []
 
@@ -110,18 +112,26 @@ def process_prediction(y_predict, sequence):
             if prediction == 1:
                 seperated_documents.append(current_document)
                 current_document = []
-                current_document.append(sequence[counter][0])
+                current_document.append("page " + sequence[counter][0])
             elif prediction == 0:
-                current_document.append(sequence[counter][0])
+                current_document.append("page " + sequence[counter][0])
         else:
             first_page = False
             current_document = []
-            current_document.append(sequence[counter][0])
+            current_document.append("page " + sequence[counter][0])
 
         if counter == (len(y_predict) - 1):
             seperated_documents.append(current_document)
 
     return (seperated_documents)
+
+
+def convert_ypredict_to_list(numpy_array):
+    int_list = numpy_array.astype(int).tolist()
+    prediction_list = []
+    for value in int_list:
+        prediction_list.append(value[0])
+    return prediction_list
 
 
 class ModelType(str, Enum):
@@ -132,8 +142,13 @@ class ModelType(str, Enum):
 @router.post("/textModel/{model_type}/processDocument/")
 async def process_document_with_text_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with " + model_type + " model")
+    used_model_name = ""
 
-    # TODO check for pdf file.content_type
+    if not file.content_type == "application/pdf":
+        logger.warning("submitted file is no pdf")
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "submitted file is no pdf"}
+
     logger.debug("reading pdf file")
     try:
         file_bytes = await file.read()
@@ -168,34 +183,44 @@ async def process_document_with_text_model(response: Response, model_type: Model
 
     if model_type == "single_page":
         logger.debug("generating predictions with single page text model")
+        used_model_name = MODEL_TEXT_PATH
         try:
-            y_predict = model.predict(model=model_text, data=sequence, prev_page_generator=False)
+            y_predict_numpy = model.predict(model=model_text, data=sequence, prev_page_generator=False)
+            y_predict = convert_ypredict_to_list(y_predict_numpy)
+            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+            prediction = Prediction(model=used_model_name, y_predict=y_predict, corresponding_pages=corresponding_pages)
         except Exception:
             logger.error(traceback.format_exc())
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "could not generate prediction"}
     elif model_type == "prev_page":
         logger.debug("generating predictions with prev page text model")
+        used_model_name = MODEL_TEXT_PREV_PAGE_PATH
         try:
-            y_predict = model.predict(model=model_text_prevpage, data=sequence, prev_page_generator=True)
+            y_predict_numpy = model.predict(model=model_text_prevpage, data=sequence, prev_page_generator=True)
+            y_predict = convert_ypredict_to_list(y_predict_numpy)
+            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+            prediction = Prediction(model=used_model_name, y_predict=y_predict, corresponding_pages=corresponding_pages)
         except Exception:
             logger.error(traceback.format_exc())
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "could not generate prediction"}
 
-    print("processing predictions")
-    processed_predictions = process_prediction(y_predict, sequence)
-
-    print("predictions: ")
-    print(processed_predictions)
-    return processed_predictions
+    predictions = PredictionWrapper(file_name=file.filename, predictions=[prediction])
+    logger.info(predictions)
+    return predictions
 
 
-@router.post("/imageModel/{model_type}/processDocument")
+@router.post("/imageModel/{model_type}/processDocument/")
 async def process_document_with_image_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with " + model_type + " model")
+    used_model_name = ""
 
-    # TODO check for pdf file.content_type
+    if not file.content_type == "application/pdf":
+        logger.warning("submitted file is no pdf")
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "submitted file is no pdf"}
+
     logger.debug("reading pdf file")
     try:
         file_bytes = await file.read()
@@ -230,24 +255,136 @@ async def process_document_with_image_model(response: Response, model_type: Mode
 
     if model_type == "single_page":
         logger.debug("generating predictions with single page image model")
+        used_model_name = MODEL_IMAGE_PATH
         try:
-            y_predict = model_img.predict(model=model_image, data=sequence, img_dim=img_dim, prev_page_generator=False)
+            y_predict_numpy = model_img.predict(model=model_image, data=sequence, img_dim=img_dim, prev_page_generator=False)
+            y_predict = convert_ypredict_to_list(y_predict_numpy)
+            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+            prediction = Prediction(model=used_model_name, y_predict=y_predict, corresponding_pages=corresponding_pages)
         except Exception:
             logger.error(traceback.format_exc())
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "could not generate prediction"}
     elif model_type == "prev_page":
         logger.debug("generating predictions with prev page image model")
+        used_model_name = MODEL_IMAGE_PREV_PAGE_PATH
         try:
-            y_predict = model_img.predict(model=model_image_prevpage, data=sequence, img_dim=img_dim, prev_page_generator=True)
+            y_predict_numpy = model_img.predict(model=model_image_prevpage, data=sequence, img_dim=img_dim, prev_page_generator=True)
+            y_predict = convert_ypredict_to_list(y_predict_numpy)
+            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+            prediction = Prediction(model=used_model_name, y_predict=y_predict, corresponding_pages=corresponding_pages)
         except Exception:
             logger.error(traceback.format_exc())
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "could not generate prediction"}
 
-    print("processing predictions")
-    processed_predictions = process_prediction(y_predict, sequence)
+    predictions = PredictionWrapper(file_name=file.filename, predictions=[prediction])
+    logger.info(predictions)
+    return predictions
 
-    print("predictions: ")
-    print(processed_predictions)
-    return processed_predictions
+
+@router.post("/combinedModels/{text_model_type}/{image_model_type}/processDocument/")
+async def process_document_with_text_model(response: Response, text_model_type: ModelType, image_model_type: ModelType, file: UploadFile = File(...)):
+    logger.info("processing file: " + file.filename + " with text model: " + text_model_type + " and image model: " + image_model_type)
+
+    if not file.content_type == "application/pdf":
+        logger.warning("submitted file is no pdf")
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "submitted file is no pdf"}
+
+    logger.debug("reading pdf file")
+    try:
+        file_bytes = await file.read()
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not read file"}
+
+    logger.debug("converting pdf to jpeg images")
+    try:
+        file_jpegs_bytes = convert_pdf_to_jpeg(file_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not convert pdf to images"}
+
+    logger.debug("resizing image bytes")
+    try:
+        file_images_resized_bytes = convert_image_to_resized(file_jpegs_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not resize image bytes"}
+
+    logger.debug("ocr processing images")
+    try:
+        file_texts = ocr_image_to_text(file_jpegs_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not ocr process images"}
+
+    logger.debug("generating sequences")
+    try:
+        text_sequence  = generate_sequence(file_texts)
+        image_sequence = generate_sequence(file_images_resized_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate sequence"}
+
+    # text model prediction
+    if text_model_type == "single_page":
+        logger.debug("generating predictions with single page text model")
+        used_model_name = MODEL_TEXT_PATH
+        try:
+            text_y_predict_numpy = model.predict(model=model_text, data=text_sequence, prev_page_generator=False)
+            text_y_predict = convert_ypredict_to_list(text_y_predict_numpy)
+            text_corresponding_pages = process_prediction_to_corresponding_pages(text_y_predict_numpy, text_sequence)
+            text_prediction = Prediction(model=used_model_name, y_predict=text_y_predict, corresponding_pages=text_corresponding_pages)
+        except Exception:
+            logger.error(traceback.format_exc())
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "could not generate prediction"}
+    elif text_model_type == "prev_page":
+        logger.debug("generating predictions with prev page text model")
+        used_model_name = MODEL_TEXT_PREV_PAGE_PATH
+        try:
+            text_y_predict_numpy = model.predict(model=model_text_prevpage, data=text_sequence, prev_page_generator=True)
+            text_y_predict = convert_ypredict_to_list(text_y_predict_numpy)
+            text_corresponding_pages = process_prediction_to_corresponding_pages(text_y_predict_numpy, text_sequence)
+            text_prediction = Prediction(model=used_model_name, y_predict=text_y_predict, corresponding_pages=text_corresponding_pages)
+        except Exception:
+            logger.error(traceback.format_exc())
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "could not generate prediction"}
+
+    # image model prediction
+    if image_model_type == "single_page":
+        logger.debug("generating predictions with single page image model")
+        used_model_name = MODEL_IMAGE_PATH
+        try:
+            image_y_predict_numpy = model_img.predict(model=model_image, data=image_sequence, img_dim=img_dim, prev_page_generator=False)
+            image_y_predict = convert_ypredict_to_list(image_y_predict_numpy)
+            image_corresponding_pages = process_prediction_to_corresponding_pages(image_y_predict_numpy, image_sequence)
+            image_prediction = Prediction(model=used_model_name, y_predict=image_y_predict, corresponding_pages=image_corresponding_pages)
+        except Exception:
+            logger.error(traceback.format_exc())
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "could not generate prediction"}
+    elif image_model_type == "prev_page":
+        logger.debug("generating predictions with prev page image model")
+        used_model_name = MODEL_IMAGE_PREV_PAGE_PATH
+        try:
+            image_y_predict_numpy = model_img.predict(model=model_image_prevpage, data=image_sequence, img_dim=img_dim, prev_page_generator=True)
+            image_y_predict = convert_ypredict_to_list(image_y_predict_numpy)
+            image_corresponding_pages = process_prediction_to_corresponding_pages(image_y_predict_numpy, image_sequence)
+            image_prediction = Prediction(model=used_model_name, y_predict=image_y_predict, corresponding_pages=image_corresponding_pages)
+        except Exception:
+            logger.error(traceback.format_exc())
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "could not generate prediction"}
+
+    predictions = PredictionWrapper(file_name=file.filename, predictions=[text_prediction, image_prediction])
+    logger.info(predictions)
+    return predictions
