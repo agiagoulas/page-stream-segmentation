@@ -16,6 +16,7 @@ from PIL import Image
 
 
 LABEL2IDX = {'FirstPage' : 1, 'NextPage' : 0}
+img_path_template = ""
 
 
 def read_csv_data(csvfile):
