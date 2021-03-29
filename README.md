@@ -54,7 +54,7 @@ Process PDF Documents with models that only consider the text data.
 Model | Accuracy | Kappa
 --- | --- | ---
 single_page | 0,826255 | 0,627790
-prev_page | 0,830116 | 0,641725
+*prev_page* | *0,830116* | *0,641725*
 
 ### Image Only Processing
 
@@ -67,7 +67,7 @@ Process PDF Documents with models that only consider the image data.
 Model | Accuracy | Kappa
 --- | --- | ---
 single_page | 0,926641 | 0,847236
-prev_page | 0,934363 | 0,863316
+*prev_page* | *0,934363* | *0,863316*
 
 ### Combined Multi-Modal Processing
 
@@ -75,13 +75,21 @@ prev_page | 0,934363 | 0,863316
 
 Process PDF Documents with text and image models and combine the output for a multi-modal PSS prediction.
 
+Text Model | Image Model | Accuracy | Kappa
+--- | --- | --- | ---
+single_page | single_page | 0,926641 | 0,847236
+*single_page* | *prev_page* | *0,942085* | *0,879059*
+prev_page | single_page | 0,918919 | 0,830682
+prev_page | prev_page | 0,938224 | 0,871176
+
 ## Notice
 
 This repository builds onto the works of Wiedemann & Heyer 2019:
 >Wiedemann, G., Heyer, G. Multi-modal page stream segmentation with convolutional neural networks.
 >Lang Resources & Evaluation (2019). https://doi.org/10.1007/s10579-019-09476-2
 
-The Model Performance was measured with a test subset of the Tobacco800 Dataset:
+The Model Training was performed with the Tobacco800 Dataset:
+(Model Performance was measured with a test subset)
 >David Doermann, Tobacco 800 Dataset (Tobacco800) http://tc11.cvc.uab.es/datasets/Tobacco800_1
 
 
