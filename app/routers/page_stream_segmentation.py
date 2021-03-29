@@ -42,24 +42,24 @@ except Exception:
     logger.error("could not load image models")
     logger.error(traceback.format_exc())
 
-# logger.info("loading fasttext word vectors")
-# try:
-#     ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
-#     model.ft = ft
-# except Exception:
-#     logger.error("could not load fasttext word vectors")
-#     logger.error(traceback.format_exc())
+logger.info("loading fasttext word vectors")
+try:
+    ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
+    model.ft = ft
+except Exception:
+    logger.error("could not load fasttext word vectors")
+    logger.error(traceback.format_exc())
 
-# logger.info("loading text models")
-# try:
-#     model_text = model.compile_model_singlepage()
-#     model_text.load_weights(WORKING_DIR + MODEL_TEXT)
-#     model_text_prevpage = model.compile_model_prevpage()
-#     model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
-# except Exception:
-#     logger.error("could not load text models")
-#     logger.error(traceback.format_exc())
-# logger.info("---Done---")
+logger.info("loading text models")
+try:
+    model_text = model.compile_model_singlepage()
+    model_text.load_weights(WORKING_DIR + MODEL_TEXT)
+    model_text_prevpage = model.compile_model_prevpage()
+    model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
+except Exception:
+    logger.error("could not load text models")
+    logger.error(traceback.format_exc())
+logger.info("---Done---")
 
 
 def convert_pdf_to_jpeg(pdf_bytes):
