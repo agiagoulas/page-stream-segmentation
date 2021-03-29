@@ -3,8 +3,9 @@ from loguru import logger
 from pdf2image import convert_from_bytes
 from pytesseract import image_to_string
 from PIL import Image
-
+from io import BytesIO    
 from enum import Enum
+
 import numpy as np
 import fasttext
 import cv2
@@ -41,24 +42,24 @@ except Exception:
     logger.error("could not load image models")
     logger.error(traceback.format_exc())
 
-logger.info("loading fasttext word vectors")
-try:
-    ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
-    model.ft = ft
-except Exception:
-    logger.error("could not load fasttext word vectors")
-    logger.error(traceback.format_exc())
+# logger.info("loading fasttext word vectors")
+# try:
+#     ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
+#     model.ft = ft
+# except Exception:
+#     logger.error("could not load fasttext word vectors")
+#     logger.error(traceback.format_exc())
 
-logger.info("loading text models")
-try:
-    model_text = model.compile_model_singlepage()
-    model_text.load_weights(WORKING_DIR + MODEL_TEXT)
-    model_text_prevpage = model.compile_model_prevpage()
-    model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
-except Exception:
-    logger.error("could not load text models")
-    logger.error(traceback.format_exc())
-logger.info("---Done---")
+# logger.info("loading text models")
+# try:
+#     model_text = model.compile_model_singlepage()
+#     model_text.load_weights(WORKING_DIR + MODEL_TEXT)
+#     model_text_prevpage = model.compile_model_prevpage()
+#     model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
+# except Exception:
+#     logger.error("could not load text models")
+#     logger.error(traceback.format_exc())
+# logger.info("---Done---")
 
 
 def convert_pdf_to_jpeg(pdf_bytes):
@@ -79,28 +80,6 @@ def generate_sequence(file_array):
         sequence.append([str(count), current_page_content, prev_page_content])
         prev_page_content = current_page_content
     return sequence
-
-
-# TODO add tresholding
-def otsu_tresholding_and_resizing(img):
-    img_cv = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2GRAY)
-    gray, img_bin = cv2.threshold(img_cv, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    gray = cv2.bitwise_not(img_bin)
-    # resized = cv2.resize(gray, img_dim, interpolation = cv2.INTER_AREA)
-    resized = cv2.resize(gray, (225, 225), interpolation=cv2.INTER_AREA)
-    img_pil = Image.fromarray(resized)
-    return img_pil
-
-
-def convert_image_to_resized(image_bytes_array):
-    images = []
-
-    for counter, image in enumerate(image_bytes_array):
-        # image_object = otsu_tresholding_and_resizing(image)
-        # images.append(image_object)
-        images.append(image)
-
-    return images
 
 
 def process_prediction_to_corresponding_pages(y_predict, sequence):
@@ -243,17 +222,9 @@ async def process_document_with_image_model(response: Response, model_type: Mode
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "could not convert pdf to images"}
 
-    logger.debug("resizing image bytes")
-    try:
-        file_images_resized_bytes = convert_image_to_resized(file_jpegs_bytes)
-    except Exception:
-        logger.error(traceback.format_exc())
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "could not resize image bytes"}
-
     logger.debug("generating sequence")
     try:
-        sequence = generate_sequence(file_images_resized_bytes)
+        sequence = generate_sequence(file_jpegs_bytes)
     except Exception:
         logger.error(traceback.format_exc())
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -312,14 +283,6 @@ async def process_document_with_text_model(response: Response, text_model_type: 
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "could not convert pdf to images"}
 
-    logger.debug("resizing image bytes")
-    try:
-        file_images_resized_bytes = convert_image_to_resized(file_jpegs_bytes)
-    except Exception:
-        logger.error(traceback.format_exc())
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "could not resize image bytes"}
-
     logger.debug("ocr processing images")
     try:
         file_texts = ocr_image_to_text(file_jpegs_bytes)
@@ -331,7 +294,7 @@ async def process_document_with_text_model(response: Response, text_model_type: 
     logger.debug("generating sequences")
     try:
         text_sequence = generate_sequence(file_texts)
-        image_sequence = generate_sequence(file_images_resized_bytes)
+        image_sequence = generate_sequence(file_jpegs_bytes)
     except Exception:
         logger.error(traceback.format_exc())
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -399,7 +362,7 @@ async def process_document_with_text_model(response: Response, text_model_type: 
         image_prediction_power_parameter = 0.7
     elif text_model_type == "prev_page" and image_model_type == "prev_page":
         text_prediction_power_parameter = 0.1
-        image_prediction_power_parameter = 0.76
+        image_prediction_power_parameter = 0.6
 
     try:
         text_probability = np.concatenate([1 - text_y_predict_numpy, text_y_predict_numpy], axis=1)
