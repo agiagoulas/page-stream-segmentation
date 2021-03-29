@@ -22,11 +22,14 @@ router = APIRouter(prefix="/pss",
 
 
 WORKING_DIR = "./app/pss/models/"
-MODEL_TEXT= "tobacco800_text_single-page.hdf5"
-MODEL_TEXT_PREV_PAGE= "tobacco800_text_prev-page.hdf5"
-MODEL_IMAGE= "tobacco800_image_single-page.hdf5"
+MODEL_TEXT = "tobacco800_text_single-page.hdf5"
+MODEL_TEXT_PREV_PAGE = "tobacco800_text_prev-page.hdf5"
+MODEL_IMAGE = "tobacco800_image_single-page.hdf5"
 MODEL_IMAGE_PREV_PAGE = "tobacco800_image_prev-page.hdf5"
 FASTTEXT_WORD_VECTORS = "wiki.en.bin"
+
+POWER_TEXT_PREDICTION_PARAMETER = 0.4
+POWER_IMAGE_PREDICTION_PARAMETER = 0.2
 
 logger.info("---Model Setup---")
 logger.info("loading image models")
@@ -75,7 +78,7 @@ def generate_sequence(file_array):
     sequence = []
     prev_page_content = ""
     for count, current_page_content in enumerate(file_array):
-        sequence.append([str(count), current_page_content, prev_page_content])  
+        sequence.append([str(count), current_page_content, prev_page_content])
         prev_page_content = current_page_content
     return sequence
 
@@ -151,7 +154,6 @@ class ModelType(str, Enum):
 @router.post("/textModel/{model_type}/processDocument/", response_model=PredictionWrapper)
 async def process_document_with_text_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with " + model_type + " model")
-    used_model_name = ""
 
     if not file.content_type == "application/pdf":
         logger.warning("submitted file is no pdf")
@@ -227,7 +229,6 @@ async def process_document_with_text_model(response: Response, model_type: Model
 @router.post("/imageModel/{model_type}/processDocument/", response_model=PredictionWrapper)
 async def process_document_with_image_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
     logger.info("processing file: " + file.filename + " with " + model_type + " model")
-    used_model_name = ""
 
     if not file.content_type == "application/pdf":
         logger.warning("submitted file is no pdf")
@@ -343,7 +344,7 @@ async def process_document_with_text_model(response: Response, text_model_type: 
 
     logger.debug("generating sequences")
     try:
-        text_sequence  = generate_sequence(file_texts)
+        text_sequence = generate_sequence(file_texts)
         image_sequence = generate_sequence(file_images_resized_bytes)
     except Exception:
         logger.error(traceback.format_exc())
@@ -412,9 +413,9 @@ async def process_document_with_text_model(response: Response, text_model_type: 
 
     logger.debug("generating combined predictions from both models")
     try:
-        text_probability = np.concatenate([1 - text_y_predict_numpy, text_y_predict_numpy], axis = 1)
-        image_probability = np.concatenate([1 - image_y_predict_numpy, image_y_predict_numpy], axis = 1)
-        combined_y_predict_numpy = np.argmax(np.power(text_probability, 0.4) * np.power(image_probability, 0.2), axis = 1)
+        text_probability = np.concatenate([1 - text_y_predict_numpy, text_y_predict_numpy], axis=1)
+        image_probability = np.concatenate([1 - image_y_predict_numpy, image_y_predict_numpy], axis=1)
+        combined_y_predict_numpy = np.argmax(np.power(text_probability, POWER_TEXT_PREDICTION_PARAMETER) * np.power(image_probability, POWER_IMAGE_PREDICTION_PARAMETER), axis=1)
         combined_corresponding_pages = process_prediction_to_corresponding_pages(combined_y_predict_numpy, text_sequence)
         int_list = combined_y_predict_numpy.astype(int).tolist()
         combined_y_predict = []
