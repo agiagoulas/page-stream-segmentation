@@ -81,8 +81,8 @@ This repository builds onto the works of Wiedemann & Heyer 2019:
 >Wiedemann, G., Heyer, G. Multi-modal page stream segmentation with convolutional neural networks.
 >Lang Resources & Evaluation (2019). https://doi.org/10.1007/s10579-019-09476-2
 
-
-
+The Model Performance was measured with a test subset of the Tobacco800 Dataset:
+>David Doermann, Tobacco 800 Dataset (Tobacco800) http://tc11.cvc.uab.es/datasets/Tobacco800_1
 
 
 
