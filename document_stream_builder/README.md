@@ -1,6 +1,6 @@
 # Document Stream Builder
 
-Python script to build <b>consecutive document streams</b> from a collection of pdf documents.
+Python script to build **consecutive document streams** from a collection of pdf documents.
 
 ## Usage
 
