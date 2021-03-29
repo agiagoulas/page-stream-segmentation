@@ -28,8 +28,8 @@ MODEL_IMAGE = "tobacco800_image_single-page.hdf5"
 MODEL_IMAGE_PREV_PAGE = "tobacco800_image_prev-page.hdf5"
 FASTTEXT_WORD_VECTORS = "wiki.en.bin"
 
-POWER_TEXT_PREDICTION_PARAMETER = 0.4
-POWER_IMAGE_PREDICTION_PARAMETER = 0.2
+POWER_TEXT_PREDICTION_PARAMETER = 0.1
+POWER_IMAGE_PREDICTION_PARAMETER = 0.7
 
 logger.info("---Model Setup---")
 logger.info("loading image models")
