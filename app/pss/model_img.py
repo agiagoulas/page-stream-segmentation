@@ -61,13 +61,13 @@ class ImageFeatureGenerator(Sequence):
 
 
 def predict(model, data, img_dim, prev_page_generator=False, batch_size=32):
-    if prev_page_generator:
-        y_predict = np.round(model.predict(ImageFeatureGenerator(data, img_dim, prevpage=True,
-                                                                           batch_size=batch_size)))
-    else:
-        y_predict = np.round(model.predict(ImageFeatureGenerator(data, img_dim, prevpage=False,
-                                                                           batch_size=batch_size)))
+    y_predict = np.round(model.predict(ImageFeatureGenerator(data, img_dim, prevpage=prev_page_generator, batch_size=batch_size)))
     return y_predict
+
+
+def predict_without_rounding(model, data, img_dim, prev_page_generator=False, batch_size=32):
+    y = model.predict(ImageFeatureGenerator(data, img_dim, prevpage=prev_page_generator, batch_size=batch_size))
+    return y
 
 
 def compile_model_singlepage(img_dim, print_summary=False):

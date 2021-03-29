@@ -143,7 +143,7 @@ cython_debug/
 .idea
 
 # Project Specific
-*/pss/models/
+wiki.en.bin
 document_stream_builder/input/*
 !document_stream_builder/input/.gitkeep
 document_stream_builder/output/*

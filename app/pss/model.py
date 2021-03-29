@@ -99,6 +99,14 @@ def predict(model, data, prev_page_generator=False, batch_size=256):
     return y_predict
 
 
+def predict_without_rounding(model, data, prev_page_generator=False, batch_size=256):
+    if prev_page_generator:
+        y = model.predict(TextFeaturePrevPageGenerator(data, batch_size=batch_size))
+    else:
+        y = model.predict(TextFeatureSinglePageGenerator(data, batch_size=batch_size))
+    return y
+
+
 def compile_model_singlepage(print_summary=False):
     filter_sizes = (3, 4, 5)
     model_input_ft = Input(shape=(NB_SEQUENCE_LENGTH, NB_EMBEDDING_DIMS))
