@@ -30,6 +30,12 @@ class ImageFeatureGenerator(Sequence):
             batch_x, batch_y = self.process_image_data(inds)
         return batch_x, batch_y
 
+    def get_image_data(self, binary_image):
+        img = binary_image.resize((self.img_dim[0], self.img_dim[1]), Image.NEAREST)
+        image = img_to_array(img)
+        image = preprocess_input(image)
+        return image
+
     def process_image_data(self, inds):
         image_array = []
         for index in inds:
@@ -52,12 +58,6 @@ class ImageFeatureGenerator(Sequence):
             prev_image_array.append(prev_image)
 
         return [np.array(image_array), np.array(prev_image_array)], np.zeros(int(len(inds)))
-
-    def get_image_data(self, binary_image):
-        img = binary_image.resize((self.img_dim[0], self.img_dim[1]), Image.NEAREST)
-        image = img_to_array(img)
-        image = preprocess_input(image)
-        return image
 
 
 def predict(model, data, img_dim, prev_page_generator=False, batch_size=32):
