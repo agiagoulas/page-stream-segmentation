@@ -28,8 +28,6 @@ MODEL_IMAGE = "tobacco800_image_single-page.hdf5"
 MODEL_IMAGE_PREV_PAGE = "tobacco800_image_prev-page.hdf5"
 FASTTEXT_WORD_VECTORS = "wiki.en.bin"
 
-POWER_TEXT_PREDICTION_PARAMETER = 0.1
-POWER_IMAGE_PREDICTION_PARAMETER = 0.7
 
 logger.info("---Model Setup---")
 logger.info("loading image models")
@@ -195,31 +193,25 @@ async def process_document_with_text_model(response: Response, model_type: Model
     if model_type == "single_page":
         logger.debug("generating predictions with single page text model")
         used_model_name = MODEL_TEXT
-        try:
-            y = model.predict_without_rounding(model=model_text, data=sequence, prev_page_generator=False)
-            y_exact = convert_numpy_to_float_list(y)
-            y_predict_numpy = np.round(y)
-            y_predict = convert_numpy_to_int_list(y_predict_numpy)
-            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
-            prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_model = model_text
+        prev_page_generator = False
     elif model_type == "prev_page":
         logger.debug("generating predictions with prev page text model")
         used_model_name = MODEL_TEXT_PREV_PAGE
-        try:
-            y = model.predict_without_rounding(model=model_text_prevpage, data=sequence, prev_page_generator=True)
-            y_exact = convert_numpy_to_float_list(y)
-            y_predict_numpy = np.round(y)
-            y_predict = convert_numpy_to_int_list(y_predict_numpy)
-            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
-            prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_model = model_text_prevpage
+        prev_page_generator = True
+
+    try:
+        y = model.predict_without_rounding(model=used_model, data=sequence, prev_page_generator=prev_page_generator)
+        y_exact = convert_numpy_to_float_list(y)
+        y_predict_numpy = np.round(y)
+        y_predict = convert_numpy_to_int_list(y_predict_numpy)
+        corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+        prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate prediction"}
 
     predictions = PredictionWrapper(file_name=file.filename, predictions=[prediction])
     logger.info(predictions)
@@ -270,31 +262,25 @@ async def process_document_with_image_model(response: Response, model_type: Mode
     if model_type == "single_page":
         logger.debug("generating predictions with single page image model")
         used_model_name = MODEL_IMAGE
-        try:
-            y = model_img.predict_without_rounding(model=model_image, data=sequence, img_dim=img_dim, prev_page_generator=False)
-            y_exact = convert_numpy_to_float_list(y)
-            y_predict_numpy = np.round(y)
-            y_predict = convert_numpy_to_int_list(y_predict_numpy)
-            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
-            prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_model = model_image
+        prev_page_generator = False
     elif model_type == "prev_page":
         logger.debug("generating predictions with prev page image model")
         used_model_name = MODEL_IMAGE_PREV_PAGE
-        try:
-            y = model_img.predict_without_rounding(model=model_image_prevpage, data=sequence, img_dim=img_dim, prev_page_generator=True)
-            y_exact = convert_numpy_to_float_list(y)
-            y_predict_numpy = np.round(y)
-            y_predict = convert_numpy_to_int_list(y_predict_numpy)
-            corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
-            prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_model = model_image_prevpage
+        prev_page_generator = True
+
+    try:
+        y = model_img.predict_without_rounding(model=used_model, data=sequence, img_dim=img_dim, prev_page_generator=prev_page_generator)
+        y_exact = convert_numpy_to_float_list(y)
+        y_predict_numpy = np.round(y)
+        y_predict = convert_numpy_to_int_list(y_predict_numpy)
+        corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+        prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate prediction"}
 
     predictions = PredictionWrapper(file_name=file.filename, predictions=[prediction])
     logger.info(predictions)
@@ -354,68 +340,71 @@ async def process_document_with_text_model(response: Response, text_model_type: 
     # text model prediction
     if text_model_type == "single_page":
         logger.debug("generating predictions with single page text model")
-        used_model_name = MODEL_TEXT
-        try:
-            text_y = model.predict_without_rounding(model=model_text, data=text_sequence, prev_page_generator=False)
-            text_y_exact = convert_numpy_to_float_list(text_y)
-            text_y_predict_numpy = np.round(text_y)
-            text_y_predict = convert_numpy_to_int_list(text_y_predict_numpy)
-            text_corresponding_pages = process_prediction_to_corresponding_pages(text_y_predict_numpy, text_sequence)
-            text_prediction = Prediction(model=used_model_name, y_predict=text_y_predict, y_exact=text_y_exact, corresponding_pages=text_corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_text_model_name = MODEL_TEXT
+        used_text_model = model_text
+        text_prev_page_generator = False   
     elif text_model_type == "prev_page":
         logger.debug("generating predictions with prev page text model")
-        used_model_name = MODEL_TEXT_PREV_PAGE
-        try:
-            text_y = model.predict_without_rounding(model=model_text_prevpage, data=text_sequence, prev_page_generator=True)
-            text_y_exact = convert_numpy_to_float_list(text_y)
-            text_y_predict_numpy = np.round(text_y)
-            text_y_predict = convert_numpy_to_int_list(text_y_predict_numpy)
-            text_corresponding_pages = process_prediction_to_corresponding_pages(text_y_predict_numpy, text_sequence)
-            text_prediction = Prediction(model=used_model_name, y_predict=text_y_predict, y_exact=text_y_exact, corresponding_pages=text_corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_text_model_name = MODEL_TEXT_PREV_PAGE
+        used_text_model = model_text_prevpage
+        text_prev_page_generator = True
+
+    try:
+        text_y = model.predict_without_rounding(model=used_text_model, data=text_sequence, prev_page_generator=text_prev_page_generator)
+        text_y_exact = convert_numpy_to_float_list(text_y)
+        text_y_predict_numpy = np.round(text_y)
+        text_y_predict = convert_numpy_to_int_list(text_y_predict_numpy)
+        text_corresponding_pages = process_prediction_to_corresponding_pages(text_y_predict_numpy, text_sequence)
+        text_prediction = Prediction(model=used_text_model_name, y_predict=text_y_predict, y_exact=text_y_exact, corresponding_pages=text_corresponding_pages)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate prediction"}
 
     # image model prediction
     if image_model_type == "single_page":
         logger.debug("generating predictions with single page image model")
-        used_model_name = MODEL_IMAGE
-        try:
-            image_y = model_img.predict_without_rounding(model=model_image, data=image_sequence, img_dim=img_dim, prev_page_generator=False)
-            image_y_exact = convert_numpy_to_float_list(image_y)
-            image_y_predict_numpy = np.round(image_y)
-            image_y_predict = convert_numpy_to_int_list(image_y_predict_numpy)
-            image_corresponding_pages = process_prediction_to_corresponding_pages(image_y_predict_numpy, image_sequence)
-            image_prediction = Prediction(model=used_model_name, y_predict=image_y_predict, y_exact=image_y_exact, corresponding_pages=image_corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_image_model_name = MODEL_IMAGE
+        used_image_model = model_image
+        image_prev_page_generator = False
     elif image_model_type == "prev_page":
         logger.debug("generating predictions with prev page image model")
-        used_model_name = MODEL_IMAGE_PREV_PAGE
-        try:
-            image_y = model_img.predict_without_rounding(model=model_image_prevpage, data=image_sequence, img_dim=img_dim, prev_page_generator=True)
-            image_y_exact = convert_numpy_to_float_list(image_y)
-            image_y_predict_numpy = np.round(image_y)
-            image_y_predict = convert_numpy_to_int_list(image_y_predict_numpy)
-            image_corresponding_pages = process_prediction_to_corresponding_pages(image_y_predict_numpy, image_sequence)
-            image_prediction = Prediction(model=used_model_name, y_predict=image_y_predict, y_exact=image_y_exact, corresponding_pages=image_corresponding_pages)
-        except Exception:
-            logger.error(traceback.format_exc())
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "could not generate prediction"}
+        used_image_model_name = MODEL_IMAGE_PREV_PAGE
+        used_image_model = model_image_prevpage
+        image_prev_page_generator = True
+
+    try:
+        image_y = model_img.predict_without_rounding(model=used_image_model, data=image_sequence, img_dim=img_dim, prev_page_generator=image_prev_page_generator)
+        image_y_exact = convert_numpy_to_float_list(image_y)
+        image_y_predict_numpy = np.round(image_y)
+        image_y_predict = convert_numpy_to_int_list(image_y_predict_numpy)
+        image_corresponding_pages = process_prediction_to_corresponding_pages(image_y_predict_numpy, image_sequence)
+        image_prediction = Prediction(model=used_image_model_name, y_predict=image_y_predict, y_exact=image_y_exact, corresponding_pages=image_corresponding_pages)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate prediction"}
 
     logger.debug("generating combined predictions from both models")
+
+    # selection of correct power parameters
+    if text_model_type == "single_page" and image_model_type == "single_page":
+        text_prediction_power_parameter = 0.1
+        image_prediction_power_parameter = 0.3
+    elif text_model_type == "single_page" and image_model_type == "prev_page":
+        text_prediction_power_parameter = 0.2
+        image_prediction_power_parameter = 0.3
+    elif text_model_type == "prev_page" and image_model_type == "single_page":
+        text_prediction_power_parameter = 0.1
+        image_prediction_power_parameter = 0.7
+    elif text_model_type == "prev_page" and image_model_type == "prev_page":
+        text_prediction_power_parameter = 0.1
+        image_prediction_power_parameter = 0.76
+
     try:
         text_probability = np.concatenate([1 - text_y_predict_numpy, text_y_predict_numpy], axis=1)
         image_probability = np.concatenate([1 - image_y_predict_numpy, image_y_predict_numpy], axis=1)
-        combined_y_predict_numpy = np.argmax(np.power(text_probability, POWER_TEXT_PREDICTION_PARAMETER) * np.power(image_probability, POWER_IMAGE_PREDICTION_PARAMETER), axis=1)
+        combined_y_predict_numpy = np.argmax(np.power(text_probability, text_prediction_power_parameter) * np.power(image_probability, image_prediction_power_parameter), axis=1)
         combined_corresponding_pages = process_prediction_to_corresponding_pages(combined_y_predict_numpy, text_sequence)
         int_list = combined_y_predict_numpy.astype(int).tolist()
         combined_y_predict = []
