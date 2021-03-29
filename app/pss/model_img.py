@@ -113,8 +113,8 @@ class ImageFeatureGenerator(Sequence):
         return np.array(output_labels)
 
 
-def predict(model, data, img_dim, prev_page_generator=False, batch_size=32):
-    y_predict = np.round(model.predict(ImageFeatureGenerator(data, img_dim, prevpage=prev_page_generator, batch_size=batch_size)))
+def predict(model, data, img_dim, prev_page_generator=False, batch_size=32, train=False):
+    y_predict = np.round(model.predict(ImageFeatureGenerator(data, img_dim, prevpage=prev_page_generator, batch_size=batch_size, train=train)))
     return y_predict
 
 
@@ -198,7 +198,7 @@ class ValidationCheckpoint(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         
-        predicted_labels = np.round(self.model.predict(ImageFeatureGenerator(self.test_test, img_dim, prevpage=self.prev_page_generator, train=True)))
+        predicted_labels = predict(self.model, self.test_data, self.img_dim, self.prev_page_generator, train=True)
         true_labels = [LABEL2IDX[x[1]] for x in self.test_data]
 
         eval_metrics = {
