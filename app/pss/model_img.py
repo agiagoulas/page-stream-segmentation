@@ -51,9 +51,9 @@ class ImageFeatureGenerator(Sequence):
     def __getitem__(self, idx):
         inds = self.indices[idx * self.batch_size:(idx + 1) * self.batch_size]
         if self.prevpage:
-            batch_x = self.process_image_data_prevpage(inds, file_mode=self.train)
+            batch_x = self.process_image_data_prevpage(inds)
         else:
-            batch_x = self.process_image_data(inds, file_mode=self.train)
+            batch_x = self.process_image_data(inds)
 
         if self.train:
             batch_y = self.generate_output_labels(inds)
@@ -73,29 +73,29 @@ class ImageFeatureGenerator(Sequence):
         image = preprocess_input(image)
         return image
 
-    def process_image_data(self, inds, file_mode=False):
+    def process_image_data(self, inds):
         image_array = []
         for index in inds:
-            if file_mode:
+            if self.train:
                 image = self.get_image_data_from_file(self.image_data[index][1])
             else:
                 image = self.get_image_data(self.image_data[index][1])
             image_array.append(image)
         return [np.array(image_array)]
 
-    def process_image_data_prevpage(self, inds, file_mode=False):
+    def process_image_data_prevpage(self, inds):
         image_array = []
         prev_image_array = []
 
         for index in inds:
-            if file_mode:
+            if self.train:
                 image = self.get_image_data_from_file(self.image_data[index][1])
             else:
                 image = self.get_image_data(self.image_data[index][1])
             image_array.append(image)
 
             if self.image_data[index][2] != "":
-                if file_mode:
+                if self.train:
                     prev_image = self.get_image_data_from_file(self.image_data[index][2])
                 else:
                     prev_image = self.get_image_data(self.image_data[index][2])
