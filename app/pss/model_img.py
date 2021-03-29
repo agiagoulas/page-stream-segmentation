@@ -4,7 +4,7 @@ import numpy as np
 import sklearn.metrics as sklm
 
 
-from keras.preprocessing.image import img_to_array
+from keras.preprocessing.image import img_to_array, load_img
 from keras.callbacks import ModelCheckpoint, Callback
 from keras.applications.vgg16 import VGG16
 from keras.applications.vgg16 import preprocess_input
@@ -50,9 +50,9 @@ class ImageFeatureGenerator(Sequence):
     def __getitem__(self, idx):
         inds = self.indices[idx * self.batch_size:(idx + 1) * self.batch_size]
         if self.prevpage:
-            batch_x = self.process_image_data_prevpage(inds)
+            batch_x = self.process_image_data_prevpage(inds, file_mode=self.train)
         else:
-            batch_x = self.process_image_data(inds)
+            batch_x = self.process_image_data(inds, file_mode=self.train)
 
         if self.train:
             batch_y = self.generate_output_labels(inds)
@@ -66,23 +66,38 @@ class ImageFeatureGenerator(Sequence):
         image = preprocess_input(image)
         return image
 
-    def process_image_data(self, inds):
+    def get_image_data_from_file(self, image_id):
+        image_file = img_path_template % image_id 
+        image = img_to_array(load_img(image_file, target_size=(self.img_dim[0], self.img_dim[1])))
+        image = preprocess_input(image)
+        return image
+
+    def process_image_data(self, inds, file_mode=False):
         image_array = []
         for index in inds:
-            image = self.get_image_data(self.image_data[index][1])
+            if file_mode:
+                image = self.get_image_data_from_file(self.image_data[index][1])
+            else:
+                image = self.get_image_data(self.image_data[index][1])
             image_array.append(image)
         return [np.array(image_array)]
 
-    def process_image_data_prevpage(self, inds):
+    def process_image_data_prevpage(self, inds, file_mode=False):
         image_array = []
         prev_image_array = []
 
         for index in inds:
-            image = self.get_image_data(self.image_data[index][1])
+            if file_mode:
+                image = self.get_image_data_from_file(self.image_data[index][1])
+            else:
+                image = self.get_image_data(self.image_data[index][1])
             image_array.append(image)
 
             if self.image_data[index][2] != "":
-                prev_image = self.get_image_data(self.image_data[index][2])
+                if file_mode:
+                    prev_image = self.get_image_data_from_file(self.image_data[index][2])
+                else:
+                    prev_image = self.get_image_data(self.image_data[index][2])
             else:
                 prev_image = np.zeros((self.img_dim[0], self.img_dim[1], 3))
             prev_image_array.append(prev_image)
