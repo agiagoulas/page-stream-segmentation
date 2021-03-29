@@ -198,7 +198,7 @@ class ValidationCheckpoint(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         
-        predicted_labels = predict(self.model, self.test_data, self.img_dim, self.prev_page_generator)
+        predicted_labels = np.round(self.model.predict(ImageFeatureGenerator(self.test_test, img_dim, prevpage=self.prev_page_generator, train=True)))
         true_labels = [LABEL2IDX[x[1]] for x in self.test_data]
 
         eval_metrics = {
