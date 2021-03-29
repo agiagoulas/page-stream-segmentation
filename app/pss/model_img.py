@@ -1,7 +1,10 @@
 import math
 import numpy as np
+import sklearn.metrics as sklm
+
 
 from keras.preprocessing.image import img_to_array
+from keras.callbacks import ModelCheckpoint, Callback
 from keras.applications.vgg16 import VGG16
 from keras.applications.vgg16 import preprocess_input
 from keras.optimizers import Nadam
@@ -11,23 +14,49 @@ from keras.utils import *
 from PIL import Image
 
 
+LABEL2IDX = {'FirstPage' : 1, 'NextPage' : 0}
+
+
+def read_csv_data(csvfile):
+    data_instances = []
+    prev_page_image_bytes = ""
+
+    # CSV Columns: "counter";"imageBytes";"label";"documentName"
+    with open(csvfile, 'r', encoding='UTF-8') as f:
+        datareader = csv.reader(f, delimiter=';', quotechar='"')
+        next(datareader)
+        for counter, csv_row in enumerate(datareader):
+            data_instances.append([csv_row[0], csv_row[1], prev_page_image_bytes, csv_row[2]])
+            prev_page_image_bytes = csv_row[1]
+        return data_instances
+
+
 class ImageFeatureGenerator(Sequence):
-    def __init__(self, image_data, img_dim, prevpage=False, batch_size=32):
+    def __init__(self, image_data, img_dim, prevpage=False, train=False, batch_size=32):
         self.image_data = image_data
         self.indices = np.arange(len(self.image_data))
         self.batch_size = batch_size
         self.img_dim = img_dim
         self.prevpage = prevpage
+        self.train = train
 
     def __len__(self):
         return math.ceil(len(self.image_data) / self.batch_size)
 
+    def on_epoch_end(self):
+        np.random.shuffle(self.indices)
+
     def __getitem__(self, idx):
         inds = self.indices[idx * self.batch_size:(idx + 1) * self.batch_size]
         if self.prevpage:
-            batch_x, batch_y = self.process_image_data_prevpage(inds)
+            batch_x = self.process_image_data_prevpage(inds)
         else:
-            batch_x, batch_y = self.process_image_data(inds)
+            batch_x = self.process_image_data(inds)
+
+        if self.train:
+            batch_y = self.generate_output_labels(inds)
+        else:
+            batch_y = np.zeros(int(len(inds)))
         return batch_x, batch_y
 
     def get_image_data(self, binary_image):
@@ -41,7 +70,7 @@ class ImageFeatureGenerator(Sequence):
         for index in inds:
             image = self.get_image_data(self.image_data[index][1])
             image_array.append(image)
-        return [np.array(image_array)], np.zeros(int(len(inds)))
+        return [np.array(image_array)]
 
     def process_image_data_prevpage(self, inds):
         image_array = []
@@ -57,7 +86,14 @@ class ImageFeatureGenerator(Sequence):
                 prev_image = np.zeros((self.img_dim[0], self.img_dim[1], 3))
             prev_image_array.append(prev_image)
 
-        return [np.array(image_array), np.array(prev_image_array)], np.zeros(int(len(inds)))
+        return [np.array(image_array), np.array(prev_image_array)]
+
+    def generate_output_labels(self, inds):
+        output_labels = []
+        for index in inds:
+            temp_output = LABEL2IDX[self.image_data[index][3]]
+            output_labels.append(temp_output)
+        return np.array(output_labels)
 
 
 def predict(model, data, img_dim, prev_page_generator=False, batch_size=32):
@@ -130,3 +166,36 @@ def compile_model_prevpage(img_dim, print_summary=False):
     if print_summary:
         model.summary()
     return model
+
+
+class ValidationCheckpoint(Callback):
+    def __init__(self, filepath, test_data, img_dim, prev_page_generator=False, metric='kappa'):
+        self.test_data = test_data
+        self.img_dim = img_dim
+        self.metric = metric
+        self.max_metric = float('-inf')
+        self.max_metrics = None
+        self.filepath = filepath
+        self.history = []
+        self.prev_page_generator = prev_page_generator
+
+    def on_epoch_end(self, epoch, logs={}):
+        
+        predicted_labels = predict(self.model, self.test_data, self.img_dim, self.prev_page_generator)
+        true_labels = [LABEL2IDX[x[1]] for x in self.test_data]
+
+        eval_metrics = {
+            'accuracy' : sklm.accuracy_score(true_labels, predicted_labels),
+            'f1_micro' : sklm.f1_score(true_labels, predicted_labels, average='micro'),
+            'f1_macro' : sklm.f1_score(true_labels, predicted_labels, average='macro'),
+            'f1_binary' : sklm.f1_score(true_labels, predicted_labels, average='binary', pos_label=1),
+            'kappa' : sklm.cohen_kappa_score(true_labels, predicted_labels)
+        }
+        eval_metric = eval_metrics[self.metric]
+        self.history.append(eval_metric)
+        
+        if epoch > -1 and eval_metric > self.max_metric:
+            print("\n" + self.metric + " improvement: " + str(eval_metric) + " (before: " + str(self.max_metric) + "), saving to " + self.filepath)
+            self.max_metric = eval_metric     # optimization target
+            self.max_metrics = eval_metrics   # all metrics
+            self.model.save(self.filepath)
