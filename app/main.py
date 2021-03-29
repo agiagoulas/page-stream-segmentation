@@ -6,8 +6,8 @@ import logging
 from app.routers import page_stream_segmentation
 
 
-app = FastAPI(title="Page Stream Segmentation",
-              description="PSS Implementation")
+app = FastAPI(title="Multi-Modal Page Stream Segmentation",
+              description="Implementation of Multi-Modal Page Stream Segmentation Modules")
 
 app.include_router(page_stream_segmentation.router)
 
