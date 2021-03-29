@@ -20,15 +20,15 @@ LABEL2IDX = {'FirstPage' : 1, 'NextPage' : 0}
 
 def read_csv_data(csvfile):
     data_instances = []
-    prev_page_image_bytes = ""
+    prev_image_file = ""
 
-    # CSV Columns: "counter";"imageBytes";"label";"documentName"
+    # CSV Columns: "counter";"documentText";"label";"documentName"
     with open(csvfile, 'r', encoding='UTF-8') as f:
         datareader = csv.reader(f, delimiter=';', quotechar='"')
         next(datareader)
         for counter, csv_row in enumerate(datareader):
-            data_instances.append([csv_row[0], csv_row[1], prev_page_image_bytes, csv_row[2]])
-            prev_page_image_bytes = csv_row[1]
+            data_instances.append([csv_row[0], csv_row[3], prev_image_file, csv_row[2]])
+            prev_image_file = csv_row[3]
         return data_instances
 
 
