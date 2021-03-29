@@ -7,7 +7,7 @@ from app.routers import page_stream_segmentation
 
 
 app = FastAPI(title="Multi-Modal Page Stream Segmentation",
-              description="Implementation of Multi-Modal Page Stream Segmentation Modules")
+              description="Implementation of Multi-Modal Page Stream Segmentation Models")
 
 app.include_router(page_stream_segmentation.router)
 

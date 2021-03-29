@@ -148,3 +148,4 @@ document_stream_builder/input/*
 !document_stream_builder/input/.gitkeep
 document_stream_builder/output/*
 !document_stream_builder/output/.gitkeep
+*.hdf5
