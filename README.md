@@ -41,7 +41,7 @@ SwaggerUI Instance http://localhost:8000/docs
 >
 >*prev_page* selects the model, that was trained with a pair of consecutive pages as input data.
 
-The PDF Documents for all routes need to be sent at the body as **form-data** with the key being **file**
+The PDF Documents for all routes need to be sent at the request body as **form-data** with the key being **file**
 
 ### Text Only Processing
 
