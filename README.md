@@ -2,6 +2,10 @@
 
 Implementation of Multi-Modal Page Stream Segmentation with CNN Networks as a Python Service
 
+**Additional Resources**
+- **model_training** contains jupyter notebooks to train the CNN models
+- **document_stream_builder** contains a script to build document streams from pdf files
+
 ## Requirements
 
 ### Needed Installations
