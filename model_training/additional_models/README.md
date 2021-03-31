@@ -9,7 +9,7 @@ Jupyter Notebooks to train different single page image models, that take the cur
 
 ## Performance
 
-Model | Accuracy | Kappa
+Image Model | Accuracy | Kappa
 --- | --- | ---
 Xception single_page | 0,853282 | 0,692322
 ResNet50 single_page | 0,918919 | 0,829728
