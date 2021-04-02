@@ -22,6 +22,10 @@ PyPDF2 = "^1.26.0"
 opencv-python = "^4.5.1"
 fpdf = "^1.7.2"
 loguru = "^0.5.3"
+transformers = "^4.4.2"
+torch = "^1.8.1"
+torchvision = "^0.9.1"
+torchaudio = "^0.8.1"
 
 [tool.poetry.dev-dependencies]
 

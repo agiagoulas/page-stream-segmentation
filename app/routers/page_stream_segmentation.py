@@ -5,6 +5,8 @@ from pytesseract import image_to_string
 from PIL import Image
 from io import BytesIO    
 from enum import Enum
+from transformers import BertForSequenceClassification
+from transformers import BertTokenizerFast
 
 import numpy as np
 import fasttext
@@ -21,6 +23,9 @@ router = APIRouter(prefix="/pss",
                        "description": "Not found"
                    }})
 
+ENABLE_GRU_TEXT_MODELS = False 
+ENABLE_VGG16_IMAGE_MODELS = False
+ENABLE_BERT_TEXT_MODELS = True
 
 WORKING_DIR = "./app/pss/models/"
 MODEL_TEXT = "tobacco800_text_single-page.hdf5"
@@ -28,38 +33,48 @@ MODEL_TEXT_PREV_PAGE = "tobacco800_text_prev-page.hdf5"
 MODEL_IMAGE = "tobacco800_image_single-page.hdf5"
 MODEL_IMAGE_PREV_PAGE = "tobacco800_image_prev-page.hdf5"
 FASTTEXT_WORD_VECTORS = "wiki.en.bin"
+BERT_MODEL_TEXT = "bert-text-model/"
+
+if ENABLE_VGG16_IMAGE_MODELS:
+    logger.info("loading image models")
+    try:
+        img_dim = (224, 224)
+        model_image = model_img.compile_model_singlepage(img_dim)
+        model_image.load_weights(WORKING_DIR + MODEL_IMAGE)
+        model_image_prevpage = model_img.compile_model_prevpage(img_dim)
+        model_image_prevpage.load_weights(WORKING_DIR + MODEL_IMAGE_PREV_PAGE)
+    except Exception:
+        logger.error("could not load image models")
+        logger.error(traceback.format_exc())
+    logger.info("finished loading image models")
 
 
-logger.info("---Model Setup---")
-logger.info("loading image models")
-try:
-    img_dim = (224, 224)
-    model_image = model_img.compile_model_singlepage(img_dim)
-    model_image.load_weights(WORKING_DIR + MODEL_IMAGE)
-    model_image_prevpage = model_img.compile_model_prevpage(img_dim)
-    model_image_prevpage.load_weights(WORKING_DIR + MODEL_IMAGE_PREV_PAGE)
-except Exception:
-    logger.error("could not load image models")
-    logger.error(traceback.format_exc())
+if ENABLE_GRU_TEXT_MODELS:
+    logger.info("loading fasttext word vectors")
+    try:
+        ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
+        model.ft = ft
+    except Exception:
+        logger.error("could not load fasttext word vectors")
+        logger.error(traceback.format_exc())
+    logger.info("finished loading fasttext word vectors")
 
-logger.info("loading fasttext word vectors")
-try:
-    ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
-    model.ft = ft
-except Exception:
-    logger.error("could not load fasttext word vectors")
-    logger.error(traceback.format_exc())
+    logger.info("loading text models")
+    try:
+        model_text = model.compile_model_singlepage()
+        model_text.load_weights(WORKING_DIR + MODEL_TEXT)
+        model_text_prevpage = model.compile_model_prevpage()
+        model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
+    except Exception:
+        logger.error("could not load text models")
+        logger.error(traceback.format_exc())
+    logger.info("finished loading text models")
 
-logger.info("loading text models")
-try:
-    model_text = model.compile_model_singlepage()
-    model_text.load_weights(WORKING_DIR + MODEL_TEXT)
-    model_text_prevpage = model.compile_model_prevpage()
-    model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
-except Exception:
-    logger.error("could not load text models")
-    logger.error(traceback.format_exc())
-logger.info("---Done---")
+if ENABLE_BERT_TEXT_MODELS:
+    logger.info("loading bert text models")
+    bert_model_text = BertForSequenceClassification.from_pretrained(WORKING_DIR + BERT_MODEL_TEXT)
+    bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+    logger.info("finished loading bert text models")
 
 
 def convert_pdf_to_jpeg(pdf_bytes):
@@ -127,6 +142,51 @@ class ModelType(str, Enum):
     single_page = "single_page"
     prev_page = "prev_page"
 
+
+@router.post("/bertTextModel/processDocument/")
+async def process_document_with_text_model(file: UploadFile = File(...)):
+    
+    if not file.content_type == "application/pdf":
+        logger.warning("submitted file is no pdf")
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "submitted file is no pdf"}
+
+    logger.debug("reading pdf file")
+    try:
+        file_bytes = await file.read()
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not read file"}
+
+    logger.debug("converting pdf to jpeg images")
+    try:
+        file_jpegs_bytes = convert_pdf_to_jpeg(file_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not convert pdf to images"}
+
+    logger.debug("ocr processing images")
+    try:
+        file_texts = ocr_image_to_text(file_jpegs_bytes)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not ocr process images"}
+
+    logger.debug("bert things")
+    predictions=[]
+    for page in file_texts:
+        inputs = bert_tokenizer(page, padding=True, truncation=True, return_tensors="pt")
+        outputs = bert_model_text(**inputs)
+        print(outputs)
+        print(outputs.logits.argmax(-1).int())
+        predictions.append(outputs.logits.argmax(-1).item())
+
+    return predictions
+
+    
 
 @router.post("/textModel/{model_type}/processDocument/", response_model=PredictionWrapper)
 async def process_document_with_text_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
