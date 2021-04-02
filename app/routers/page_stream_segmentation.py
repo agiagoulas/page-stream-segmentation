@@ -5,11 +5,8 @@ from pytesseract import image_to_string
 from PIL import Image
 from io import BytesIO    
 from enum import Enum
-<<<<<<< HEAD
 from transformers import BertForSequenceClassification
 from transformers import BertTokenizerFast
-=======
->>>>>>> 98d15806ebc93cd66d2bf823233a5991a9f12a3b
 
 import numpy as np
 import fasttext
@@ -52,7 +49,6 @@ if ENABLE_VGG16_IMAGE_MODELS:
     logger.info("finished loading image models")
 
 
-<<<<<<< HEAD
 if ENABLE_GRU_TEXT_MODELS:
     logger.info("loading fasttext word vectors")
     try:
@@ -79,38 +75,6 @@ if ENABLE_BERT_TEXT_MODELS:
     bert_model_text = BertForSequenceClassification.from_pretrained(WORKING_DIR + BERT_MODEL_TEXT)
     bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
     logger.info("finished loading bert text models")
-=======
-logger.info("---Model Setup---")
-logger.info("loading image models")
-try:
-    img_dim = (224, 224)
-    model_image = model_img.compile_model_singlepage(img_dim)
-    model_image.load_weights(WORKING_DIR + MODEL_IMAGE)
-    model_image_prevpage = model_img.compile_model_prevpage(img_dim)
-    model_image_prevpage.load_weights(WORKING_DIR + MODEL_IMAGE_PREV_PAGE)
-except Exception:
-    logger.error("could not load image models")
-    logger.error(traceback.format_exc())
-
-logger.info("loading fasttext word vectors")
-try:
-    ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
-    model.ft = ft
-except Exception:
-    logger.error("could not load fasttext word vectors")
-    logger.error(traceback.format_exc())
-
-logger.info("loading text models")
-try:
-    model_text = model.compile_model_singlepage()
-    model_text.load_weights(WORKING_DIR + MODEL_TEXT)
-    model_text_prevpage = model.compile_model_prevpage()
-    model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
-except Exception:
-    logger.error("could not load text models")
-    logger.error(traceback.format_exc())
-logger.info("---Done---")
->>>>>>> 98d15806ebc93cd66d2bf823233a5991a9f12a3b
 
 
 def convert_pdf_to_jpeg(pdf_bytes):
@@ -133,6 +97,7 @@ def generate_sequence(file_array):
     return sequence
 
 
+# TODO: remove
 def process_prediction_to_corresponding_pages(y_predict, sequence):
     seperated_documents = []
     current_document = []
@@ -151,6 +116,31 @@ def process_prediction_to_corresponding_pages(y_predict, sequence):
             first_page = False
             current_document = []
             current_document.append("page " + sequence[counter][0])
+
+        if counter == (len(y_predict) - 1):
+            seperated_documents.append(current_document)
+
+    return (seperated_documents)
+
+
+def process_prediction_to_corresponding_pages_list(y_predict):
+    seperated_documents = []
+    current_document = []
+
+    first_page = True
+    for counter, prediction in enumerate(y_predict):
+
+        if not first_page:
+            if prediction == 1:
+                seperated_documents.append(current_document)
+                current_document = []
+                current_document.append("page " + counter)
+            elif prediction == 0:
+                current_document.append("page " + counter)
+        else:
+            first_page = False
+            current_document = []
+            current_document.append("page " + counter)
 
         if counter == (len(y_predict) - 1):
             seperated_documents.append(current_document)
@@ -211,18 +201,25 @@ async def process_document_with_text_model(file: UploadFile = File(...)):
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "could not ocr process images"}
 
-    logger.debug("bert things")
-    predictions=[]
-    for page in file_texts:
-        inputs = bert_tokenizer(page, padding=True, truncation=True, return_tensors="pt")
-        outputs = bert_model_text(**inputs)
-        print(outputs)
-        print(outputs.logits.argmax(-1).int())
-        predictions.append(outputs.logits.argmax(-1).item())
+    logger.debug("generating bert model predictions")
+    try:
+        used_model_name = BERT_MODEL_TEXT
+        y_predict=[]
+        for page in file_texts:
+            inputs = bert_tokenizer(page, padding=True, truncation=True, return_tensors="pt")
+            outputs = bert_model_text(**inputs)
+            y_predict.append(outputs.logits.argmax(-1).item())
+        corresponding_pages = process_prediction_to_corresponding_pages_list(y_predict)
+        prediction = Prediction(model=used_model_name, y_predict=y_predict, corresponding_pages=corresponding_pages)
+    except Exception:
+        logger.error(traceback.format_exc())
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "could not generate bert model predictions"}
 
+    predictions = PredictionWrapper(file_name=file.filename, predictions=[prediction])
+    logger.info(predictions)
     return predictions
-
-    
+  
 
 @router.post("/textModel/{model_type}/processDocument/", response_model=PredictionWrapper)
 async def process_document_with_text_model(response: Response, model_type: ModelType, file: UploadFile = File(...)):
