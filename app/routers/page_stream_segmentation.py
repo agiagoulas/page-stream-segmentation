@@ -5,8 +5,11 @@ from pytesseract import image_to_string
 from PIL import Image
 from io import BytesIO    
 from enum import Enum
+<<<<<<< HEAD
 from transformers import BertForSequenceClassification
 from transformers import BertTokenizerFast
+=======
+>>>>>>> 98d15806ebc93cd66d2bf823233a5991a9f12a3b
 
 import numpy as np
 import fasttext
@@ -49,6 +52,7 @@ if ENABLE_VGG16_IMAGE_MODELS:
     logger.info("finished loading image models")
 
 
+<<<<<<< HEAD
 if ENABLE_GRU_TEXT_MODELS:
     logger.info("loading fasttext word vectors")
     try:
@@ -75,6 +79,38 @@ if ENABLE_BERT_TEXT_MODELS:
     bert_model_text = BertForSequenceClassification.from_pretrained(WORKING_DIR + BERT_MODEL_TEXT)
     bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
     logger.info("finished loading bert text models")
+=======
+logger.info("---Model Setup---")
+logger.info("loading image models")
+try:
+    img_dim = (224, 224)
+    model_image = model_img.compile_model_singlepage(img_dim)
+    model_image.load_weights(WORKING_DIR + MODEL_IMAGE)
+    model_image_prevpage = model_img.compile_model_prevpage(img_dim)
+    model_image_prevpage.load_weights(WORKING_DIR + MODEL_IMAGE_PREV_PAGE)
+except Exception:
+    logger.error("could not load image models")
+    logger.error(traceback.format_exc())
+
+logger.info("loading fasttext word vectors")
+try:
+    ft = fasttext.load_model(WORKING_DIR + FASTTEXT_WORD_VECTORS)
+    model.ft = ft
+except Exception:
+    logger.error("could not load fasttext word vectors")
+    logger.error(traceback.format_exc())
+
+logger.info("loading text models")
+try:
+    model_text = model.compile_model_singlepage()
+    model_text.load_weights(WORKING_DIR + MODEL_TEXT)
+    model_text_prevpage = model.compile_model_prevpage()
+    model_text_prevpage.load_weights(WORKING_DIR + MODEL_TEXT_PREV_PAGE)
+except Exception:
+    logger.error("could not load text models")
+    logger.error(traceback.format_exc())
+logger.info("---Done---")
+>>>>>>> 98d15806ebc93cd66d2bf823233a5991a9f12a3b
 
 
 def convert_pdf_to_jpeg(pdf_bytes):
