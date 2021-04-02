@@ -23,8 +23,8 @@ router = APIRouter(prefix="/pss",
                        "description": "Not found"
                    }})
 
-ENABLE_GRU_TEXT_MODELS = False 
-ENABLE_VGG16_IMAGE_MODELS = False
+ENABLE_GRU_TEXT_MODELS = True 
+ENABLE_VGG16_IMAGE_MODELS = True
 ENABLE_BERT_TEXT_MODELS = True
 
 WORKING_DIR = "./app/pss/models/"
@@ -33,8 +33,9 @@ MODEL_TEXT_PREV_PAGE = "tobacco800_text_prev-page.hdf5"
 MODEL_IMAGE = "tobacco800_image_single-page.hdf5"
 MODEL_IMAGE_PREV_PAGE = "tobacco800_image_prev-page.hdf5"
 FASTTEXT_WORD_VECTORS = "wiki.en.bin"
-BERT_MODEL_TEXT = "bert-text-model/"
+BERT_MODEL_TEXT = "bert-text-model"
 
+# TODO: check if model is enabled at API
 if ENABLE_VGG16_IMAGE_MODELS:
     logger.info("loading image models")
     try:
@@ -97,32 +98,6 @@ def generate_sequence(file_array):
     return sequence
 
 
-# TODO: remove
-def process_prediction_to_corresponding_pages(y_predict, sequence):
-    seperated_documents = []
-    current_document = []
-
-    first_page = True
-    for counter, prediction in enumerate(y_predict):
-
-        if not first_page:
-            if prediction == 1:
-                seperated_documents.append(current_document)
-                current_document = []
-                current_document.append("page " + sequence[counter][0])
-            elif prediction == 0:
-                current_document.append("page " + sequence[counter][0])
-        else:
-            first_page = False
-            current_document = []
-            current_document.append("page " + sequence[counter][0])
-
-        if counter == (len(y_predict) - 1):
-            seperated_documents.append(current_document)
-
-    return (seperated_documents)
-
-
 def process_prediction_to_corresponding_pages_list(y_predict):
     seperated_documents = []
     current_document = []
@@ -134,13 +109,13 @@ def process_prediction_to_corresponding_pages_list(y_predict):
             if prediction == 1:
                 seperated_documents.append(current_document)
                 current_document = []
-                current_document.append("page " + counter)
+                current_document.append("page " + str(counter))
             elif prediction == 0:
-                current_document.append("page " + counter)
+                current_document.append("page " + str(counter))
         else:
             first_page = False
             current_document = []
-            current_document.append("page " + counter)
+            current_document.append("page " + str(counter))
 
         if counter == (len(y_predict) - 1):
             seperated_documents.append(current_document)
@@ -169,8 +144,8 @@ class ModelType(str, Enum):
     prev_page = "prev_page"
 
 
-@router.post("/bertTextModel/processDocument/")
-async def process_document_with_text_model(file: UploadFile = File(...)):
+@router.post("/bertTextModel/processDocument/", response_model=PredictionWrapper)
+async def process_document_with_text_model(response: Response, file: UploadFile = File(...)):
     
     if not file.content_type == "application/pdf":
         logger.warning("submitted file is no pdf")
@@ -278,7 +253,7 @@ async def process_document_with_text_model(response: Response, model_type: Model
         y_exact = convert_numpy_to_float_list(y)
         y_predict_numpy = np.round(y)
         y_predict = convert_numpy_to_int_list(y_predict_numpy)
-        corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+        corresponding_pages = process_prediction_to_corresponding_pages_list(y_predict)
         prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
     except Exception:
         logger.error(traceback.format_exc())
@@ -339,7 +314,7 @@ async def process_document_with_image_model(response: Response, model_type: Mode
         y_exact = convert_numpy_to_float_list(y)
         y_predict_numpy = np.round(y)
         y_predict = convert_numpy_to_int_list(y_predict_numpy)
-        corresponding_pages = process_prediction_to_corresponding_pages(y_predict_numpy, sequence)
+        corresponding_pages = process_prediction_to_corresponding_pages_list(y_predict)
         prediction = Prediction(model=used_model_name, y_predict=y_predict, y_exact=y_exact, corresponding_pages=corresponding_pages)
     except Exception:
         logger.error(traceback.format_exc())
@@ -410,7 +385,7 @@ async def process_document_with_text_model(response: Response, text_model_type: 
         text_y_exact = convert_numpy_to_float_list(text_y)
         text_y_predict_numpy = np.round(text_y)
         text_y_predict = convert_numpy_to_int_list(text_y_predict_numpy)
-        text_corresponding_pages = process_prediction_to_corresponding_pages(text_y_predict_numpy, text_sequence)
+        text_corresponding_pages = process_prediction_to_corresponding_pages_list(text_y_predict)
         text_prediction = Prediction(model=used_text_model_name, y_predict=text_y_predict, y_exact=text_y_exact, corresponding_pages=text_corresponding_pages)
     except Exception:
         logger.error(traceback.format_exc())
@@ -434,7 +409,7 @@ async def process_document_with_text_model(response: Response, text_model_type: 
         image_y_exact = convert_numpy_to_float_list(image_y)
         image_y_predict_numpy = np.round(image_y)
         image_y_predict = convert_numpy_to_int_list(image_y_predict_numpy)
-        image_corresponding_pages = process_prediction_to_corresponding_pages(image_y_predict_numpy, image_sequence)
+        image_corresponding_pages = process_prediction_to_corresponding_pages_list(image_y_predict)
         image_prediction = Prediction(model=used_image_model_name, y_predict=image_y_predict, y_exact=image_y_exact, corresponding_pages=image_corresponding_pages)
     except Exception:
         logger.error(traceback.format_exc())
@@ -461,7 +436,7 @@ async def process_document_with_text_model(response: Response, text_model_type: 
         text_probability = np.concatenate([1 - text_y_predict_numpy, text_y_predict_numpy], axis=1)
         image_probability = np.concatenate([1 - image_y_predict_numpy, image_y_predict_numpy], axis=1)
         combined_y_predict_numpy = np.argmax(np.power(text_probability, text_prediction_power_parameter) * np.power(image_probability, image_prediction_power_parameter), axis=1)
-        combined_corresponding_pages = process_prediction_to_corresponding_pages(combined_y_predict_numpy, text_sequence)
+        combined_corresponding_pages = process_prediction_to_corresponding_pages_list(combined_y_predict_numpy)
         int_list = combined_y_predict_numpy.astype(int).tolist()
         combined_y_predict = []
         for value in int_list:
