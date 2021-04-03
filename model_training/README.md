@@ -32,3 +32,6 @@ Functionality to train two image models. The logic is the same as for the text m
 
 Functionality to combine one text and one image model in a late fusion approach to generate a multi-modal page stream segmentation prediction.
 
+**BERT_Model_SinglePage.ipynb**
+
+Functionality to train a single page text model based on the bert-base-uncased transformers model with the addition of combining it into a multi-modal page stream segmentation prediction with the image models from the other notebooks.

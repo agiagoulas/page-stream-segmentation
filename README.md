@@ -60,6 +60,16 @@ Model | Accuracy | Kappa
 single_page | 0,826255 | 0,627790
 *prev_page* | *0,830116* | *0,641725*
 
+### Text Only Processing with Transformers
+
+**POST** <localhost:8000/pss/bertTextModel/processDocument/> 
+
+Process PDF Documents with a transformer bert model, that only considers the text data.
+
+Model | Accuracy | Kappa
+--- | --- | --- 
+*bert-based-uncased* | *0,915058* | *0,824828*
+
 ### Image Only Processing
 
 **POST** <localhost:8000/pss/imageModel/{model_type}/processDocument/>
@@ -85,6 +95,19 @@ single_page | single_page | 0,926641 | 0,847236
 *single_page* | *prev_page* | *0,942085* | *0,879059*
 prev_page | single_page | 0,918919 | 0,830682
 prev_page | prev_page | 0,938224 | 0,871176
+
+### Combined Multi-Modal Processing with Transformers (Text)
+
+**POST** <localhost:8000/pss/combinedModels/bert_model/{image_model_type}/processDocument/>
+
+Process PDF Documents with bert text and image models and combine the output for a multi-modal PSS prediction.
+
+The bert based model is hosted at the [huggingface model repository](https://huggingface.co/agiagoulas/bert-pss)
+
+Text Model | Image Model | Accuracy | Kappa
+--- | --- | --- | ---
+bert-based-uncased | single_page | 0,926641 | 0,850575
+*bert-based-uncased* | *prev_page* | *0,934363* | *0,866669* 
 
 ## Notice
 
