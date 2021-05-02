@@ -459,7 +459,7 @@ if ENABLE_VGG16_IMAGE_MODELS and ENABLE_GRU_TEXT_MODELS:
 
 
 if ENABLE_BERT_TEXT_MODELS and ENABLE_VGG16_IMAGE_MODELS:
-    @router.post("/combinedModels/bert_model/{image_model_type}/processDocument/", response_model=PredictionWrapper)
+    @router.post("/combinedModelsBert/{image_model_type}/processDocument/", response_model=PredictionWrapper)
     async def process_document_with_combined_bert_models(response: Response, image_model_type: ModelType = "single_page", file: UploadFile = File(...)):
         logger.info("processing file: " + file.filename + " with bert text model and image model: " + image_model_type)
 
