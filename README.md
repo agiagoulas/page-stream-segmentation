@@ -98,7 +98,7 @@ prev_page | prev_page | 0,938224 | 0,871176
 
 ### Combined Multi-Modal Processing with Transformers (Text)
 
-**POST** <localhost:8000/pss/combinedModels/bert_model/{image_model_type}/processDocument/>
+**POST** <localhost:8000/pss/combinedModelsBert/{image_model_type}/processDocument/>
 
 Process PDF Documents with bert text and image models and combine the output for a multi-modal PSS prediction.
 
