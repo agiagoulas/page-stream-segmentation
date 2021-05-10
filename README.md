@@ -1,6 +1,6 @@
 # Multi Modal Page Stream Segmentation 
 
-Implementation of Multi-Modal Page Stream Segmentation with CNN Networks as a Python Service
+Implementation of Multi-Modal Page Stream Segmentation with CNN Networks & Transformers as a Python Service
 
 **Additional Resources**
 - **model_training** contains jupyter notebooks to train the CNN models
